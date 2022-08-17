@@ -134,7 +134,8 @@ class ProbingPipeline:
         train_epochs: int = 10,
         is_scheduler: bool = False,
         save_checkpoints: bool = False,
-        verbose: bool = True
+        verbose: bool = True,
+        shuffle = False
     ) -> None:
         num_layers = self.transformer_model.config.num_hidden_layers
         task_data = TextFormer(probe_task, path_to_task_file)
@@ -171,6 +172,12 @@ class ProbingPipeline:
         tr_dataset = list(tr_dataset)
         val_dataset = probing_loader(task_dataset["va"])
         te_dataset = probing_loader(task_dataset["te"])
+        if shuffle:
+            tr_dataset, val_dataset, te_dataset = list(map, (np.asarray,
+                                                             [tr_dataset, val_dataset, te_dataset]))
+            np.random.shuffle(tr_dataset[:, -1])
+            np.random.shuffle(val_dataset[:, -1])
+            np.random.shuffle(te_dataset[:, -1])
 
         probing_iter_range = trange(num_layers, desc="Probing by layers") if verbose else range(num_layers)
         self.log_info['results']['elapsed_time(sec)'] = 0
