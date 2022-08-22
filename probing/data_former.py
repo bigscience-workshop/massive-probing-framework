@@ -7,6 +7,7 @@ import torch
 import logging
 import numpy as np
 from sklearn import preprocessing
+from random import shuffle
 
 from probing.utils import get_probe_task_path, exclude_rows
 
@@ -70,13 +71,15 @@ class EncodeLoader:
         encode_batch_size: int = 64,
         probing_batch_size: int = 64,
         drop_last: bool = False,
-        shuffle: bool = True
+        shuffle: bool = True,
+        mode: str = None
     ):  
         self.encode_func = encode_func
         self.encode_batch_size = encode_batch_size
         self.probing_batch_size = probing_batch_size
         self.drop_last = drop_last
         self.shuffle = shuffle
+        self.mode = mode
 
     def __call__(self, list_texts_labels: List[Tuple[str, Enum]]) -> DataLoader:
         return self.__form_dataloader(list_texts_labels)
@@ -86,6 +89,7 @@ class EncodeLoader:
     
     def __label_encoder(self, array: List[str]) -> List[int]:
         le = preprocessing.LabelEncoder()
+        
         le.fit(array)
         self.encoded_labels_dict = dict(zip(le.classes_, le.transform(le.classes_)))
         if len(self.encoded_labels_dict) < 2:
@@ -97,7 +101,7 @@ class EncodeLoader:
             list_data,
             batch_size = self.encode_batch_size,
             drop_last = self.drop_last
-        )
+        )    
 
     def __get_sampled_data(self, list_texts_labels: List[Tuple[str, Enum]]) -> Tuple[List[str], List[int]]:
         texts, labels = [], []
@@ -105,6 +109,9 @@ class EncodeLoader:
             texts.append(sample[0])
             labels.append(sample[1])
         
+        if self.mode == "control_tasks":
+            shuffle(labels)
+            
         encoded_labels = self.__label_encoder(labels)
         sampled_texts = self.__batch_sampler(texts)
         sampled_labels = self.__batch_sampler(encoded_labels)

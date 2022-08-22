@@ -126,6 +126,7 @@ class ProbingPipeline:
         epoch_metric_score = self.metrics(epoch_predictions, epoch_true_labels)
         epoch_loss = np.mean(epoch_losses)
         return epoch_loss, epoch_metric_score
+        
 
     def run(
         self,
@@ -135,13 +136,14 @@ class ProbingPipeline:
         is_scheduler: bool = False,
         save_checkpoints: bool = False,
         verbose: bool = True,
-        shuffle = False
+        mode: str = None
     ) -> None:
         num_layers = self.transformer_model.config.num_hidden_layers
         task_data = TextFormer(probe_task, path_to_task_file)
         task_dataset, num_classes = task_data.samples, task_data.num_classes
         path_to_file_for_probing = task_data.data_path
         task_language, task_category = lang_category_extraction(path_to_file_for_probing)
+        
 
         self.log_info = ProbingLog()
         self.log_info['params']['probing_task'] = probe_task
@@ -158,6 +160,7 @@ class ProbingPipeline:
         if verbose:
             print('=' * 100)
             print(f'Task in progress: {probe_task}\nPath to data: {path_to_file_for_probing}')
+            
 
         start_time = time()
         encode_func =  lambda x: self.transformer_model.encode_text(x, self.embedding_type)
@@ -165,19 +168,16 @@ class ProbingPipeline:
             encode_func = encode_func,
             encode_batch_size = self.encode_batch_size,
             probing_batch_size = self.probing_batch_size,
-            shuffle = self.shuffle
+            shuffle = self.shuffle,
+            mode = mode
             )
         tr_dataset = probing_loader(task_dataset["tr"])
         self.log_info['params']['encoded_labels'] = probing_loader.encoded_labels_dict
         tr_dataset = list(tr_dataset)
         val_dataset = probing_loader(task_dataset["va"])
         te_dataset = probing_loader(task_dataset["te"])
-        if shuffle:
-            tr_dataset, val_dataset, te_dataset = list(map, (np.asarray,
-                                                             [tr_dataset, val_dataset, te_dataset]))
-            np.random.shuffle(tr_dataset[:, -1])
-            np.random.shuffle(val_dataset[:, -1])
-            np.random.shuffle(te_dataset[:, -1])
+        
+                                                       
 
         probing_iter_range = trange(num_layers, desc="Probing by layers") if verbose else range(num_layers)
         self.log_info['results']['elapsed_time(sec)'] = 0
